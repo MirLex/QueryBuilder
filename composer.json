@@ -1,0 +1,20 @@
+{
+    "name": "mirlex/query-builder",
+    "description": "query-builder",
+    "type": "project",
+    "require": {
+    },
+    "autoload": {
+        "psr-4": {"app\\": "app/"}
+    },
+    "authors": [
+        {
+            "name": "Mirshavka Aleksandr",
+            "email": "mirshavka.alexander@gmail.com"
+        }
+    ],
+    "require-dev": {
+        "php": "^7.1",
+        "phpunit/phpunit": "^5.4"
+    }
+}
