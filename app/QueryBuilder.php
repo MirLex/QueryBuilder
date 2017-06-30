@@ -18,7 +18,7 @@ class QueryBuilder {
   private function get_words($str) {
     $words = preg_split("/[\s,]+/", trim($str));
     foreach ($words as $word) {
-      if (strlen(utf8_decode($word)) >= 2) {
+      if (strlen(utf8_decode($word)) > 1) {
         $this->words[] = mb_strtolower($word,'UTF-8');
       }
     }
@@ -30,22 +30,40 @@ class QueryBuilder {
         $curr_seq = array_slice($words, $word_idx, $seq_idx - $word_idx);
         if (count($curr_seq) > 1) {
           $key_word = implode(" ", $curr_seq);
-          if (isset($this->dictionary[$key_word])) {
-            $seq['key_word'] = $key_word;
-            $seq['start'] = $word_idx;
-            $seq['end'] = $seq_idx-1;
-            $this->sequences[] = $seq;
+          $check = $this->check_in_dictionary($key_word);
+          if ($check){
+            $seq['key_word']        = $key_word;
+            $seq['dictionary_key']  = $check;
+            $seq['start']           = $word_idx;
+            $seq['end']             = $seq_idx-1;
+            $this->sequences[]      = $seq;
           }
         }
       }
     }
   }
 
-  private function get_synonyms($key_word) {
-    if (isset($this->dictionary[mb_strtolower($key_word)])) {
-      return implode('|', $this->dictionary[$key_word]);
+  private function check_in_dictionary($word) {
+    foreach ($this->dictionary as $key => $synonyms) {
+      foreach ($synonyms as $synonym) {
+        if ($word == mb_strtolower($synonym)) {
+          return $key;
+        }
+      }
     }
     return false;
+  }
+
+  private function get_synonyms($dictionary_key) {
+    $synonyms = array();
+    foreach ($this->dictionary[$dictionary_key] as $synonym) {
+      if (preg_match("/[\s]+/i", $synonym)) {
+        $synonyms[] = '"' . $synonym . '"';
+      } else {
+        $synonyms[] = $synonym;
+      }
+    }
+    return implode('|', $synonyms);
   }
 
   private function prepare_query() {
@@ -56,7 +74,7 @@ class QueryBuilder {
           $this->query[$word_idx]['seqs'][] = array('seq_key' => $seq_key, 'start' => $seq['start']);
         }
         if ($seq['end'] == $word_idx) {
-          $this->query[$word_idx]['seqs'][] = array('seq_key' => $seq_key, 'end' => $seq['end']);
+          $this->query[$word_idx]['seqs'][] = array('seq_key' => $seq_key, 'end' => $seq['end'], 'dictionary_key' => $seq['dictionary_key']);
         } 
       }
     }
@@ -73,8 +91,9 @@ class QueryBuilder {
           }
       }
    
-      if (isset($this->dictionary[$this->query[$i]['word']])) {
-        $result .= $this->query[$i]['word']."|".$this->get_synonyms($this->query[$i]['word']);
+      $check = $this->check_in_dictionary($this->query[$i]['word']);
+      if ($check) {
+        $result .= $this->get_synonyms($check);
       } else {
         $result .= $this->query[$i]['word'];
       }
@@ -83,7 +102,7 @@ class QueryBuilder {
           foreach ($this->query[$i]['seqs'] as $seq) {
             if (isset($seq['end'])) {
               $result .= ')';
-              $result .= "|" . $this->get_synonyms($this->sequences[$seq['seq_key']]['key_word']);
+              $result .= "|" . $this->get_synonyms($seq['dictionary_key']);
             } 
           }
       }
